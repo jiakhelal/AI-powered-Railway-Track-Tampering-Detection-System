@@ -7,7 +7,6 @@ import torchvision.transforms as T
 import urllib.request
 
 DEVICE = "cpu"
-
 CLASS_NAMES = ["Non-Defective", "Defective"]
 
 # ======================================================
@@ -17,12 +16,14 @@ MODEL_URL = "https://drive.google.com/uc?id=1n1aAuUGxuNUEorj_zT3koe03ZvC4D-R7"
 MODEL_DIR = "models"
 MODEL_PATH = os.path.join(MODEL_DIR, "davit_fastener.pth")
 
+
 def download_model():
     os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.exists(MODEL_PATH):
         print("⬇️ Downloading DaViT model from Google Drive...")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("✅ Model downloaded successfully.")
+
 
 # ======================================================
 # LOAD MODEL
@@ -43,6 +44,7 @@ def load_model():
     model.eval()
     return model
 
+
 # ======================================================
 # IMAGE TRANSFORM
 # ======================================================
@@ -55,12 +57,13 @@ TRANSFORM = T.Compose([
     ),
 ])
 
+
 # ======================================================
-# HACKATHON ROUND-1 PREDICT LOGIC 
+# HACKATHON ROUND-1 PREDICT LOGIC
 # ======================================================
 def predict(model, image_pil):
     """
-    Round-1 Hackathon Logic:
+    Safety-first prediction logic
     Bias toward detecting defects (recall > precision)
     """
 
@@ -73,21 +76,18 @@ def predict(model, image_pil):
     non_def_prob = probs[0, 0].item()
     def_prob = probs[0, 1].item()
 
-    # -------------------------------
-    # SAFETY-FIRST DECISION
-    # -------------------------------
     if def_prob >= 0.35:
-        pred = 1  # Defective
+        pred = 1
         confidence = def_prob
         decision_reason = "Defect probability above safety threshold"
 
     elif def_prob >= 0.25:
-        pred = 1  # Suspected defect
+        pred = 1
         confidence = def_prob
         decision_reason = "Uncertain region – flagged for inspection"
 
     else:
-        pred = 0  # Non-Defective
+        pred = 0
         confidence = non_def_prob
         decision_reason = "Low defect probability"
 
