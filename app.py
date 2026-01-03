@@ -26,11 +26,8 @@ st.write(
 # ===============================
 # LOAD MODEL (NO CACHING PICKLE)
 # ===============================
-@st.cache_resource
-def load_cached_model():
-    return load_model()
+model = load_model()
 
-model = load_cached_model()
 
 # ===============================
 # IMAGE UPLOAD
@@ -133,5 +130,6 @@ st.caption(
     "⚙️ Deployed using Streamlit Community Cloud | "
     "DaViT Vision Transformer | Safety-First AI"
 )
+
 
 
