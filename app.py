@@ -1,7 +1,9 @@
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image
+import numpy as np
 
 from utils.model_utils import load_model, predict
+from utils.feature_map_utils import generate_fault_boxes
 
 # ======================================================
 # PAGE CONFIG
@@ -11,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🚆 AI-Powered Railway Track Fault Detection")
+st.title("🤖 AI-Powered Railway Track Fault Detection")
 st.write(
     "Upload a railway track image to detect defects using **DaViT** "
     "(safety-first decision logic)."
@@ -20,39 +22,14 @@ st.write(
 # ======================================================
 # LOAD MODEL (CACHED)
 # ======================================================
-@st.cache_resource
+@st.cache_resource(show_spinner="Loading DaViT model...")
 def load_cached_model():
     return load_model()
 
 model = load_cached_model()
 
 # ======================================================
-# SEVERITY COMPUTATION (MINIMAL, SAFE)
-# ======================================================
-def compute_severity(def_prob):
-    score = def_prob
-
-    if score < 0.25:
-        level = "Low"
-    elif score < 0.4:
-        level = "Medium"
-    else:
-        level = "High"
-
-    return round(score, 2), level
-
-# ======================================================
-# DRAW RED BOX (STREAMLIT SAFE)
-# ======================================================
-def draw_primary_box(image, box):
-    img = image.copy()
-    draw = ImageDraw.Draw(img)
-    x1, y1, x2, y2 = box
-    draw.rectangle([x1, y1, x2, y2], outline="red", width=6)
-    return img
-
-# ======================================================
-# IMAGE UPLOAD
+# FILE UPLOAD
 # ======================================================
 uploaded_file = st.file_uploader(
     "Upload Railway Track Image",
@@ -62,7 +39,15 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
 
-    st.image(image, caption="Uploaded Image", use_container_width=True)
+    # 🔽 DISPLAY SMALLER IMAGE (NO RESIZE OF ACTUAL IMAGE)
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        st.image(
+            image,
+            caption="Uploaded Image",
+            use_container_width=False,
+            width=700   # 👈 controls visual size only
+        )
 
     # ==================================================
     # PREDICTION
@@ -74,36 +59,70 @@ if uploaded_file is not None:
     label = "Defective" if pred == 1 else "Non-Defective"
     color = "red" if pred == 1 else "green"
 
-    st.markdown(f"### 🔍 Prediction: **:{color}[{label}]**")
-    st.markdown(f"**Confidence:** `{round(confidence, 2)}`")
-    st.markdown(f"**Decision Reason:** {reason}")
+    st.markdown(
+        f"### 🔍 Prediction: "
+        f"<span style='color:{color}'>{label}</span>",
+        unsafe_allow_html=True
+    )
+
+    st.write(f"**Confidence:** `{confidence:.2f}`")
+    st.write(f"**Decision Reason:** {reason}")
 
     # ==================================================
-    # SEVERITY DISPLAY
+    # SEVERITY (USING DEFECT PROBABILITY)
     # ==================================================
-    severity_score, severity_level = compute_severity(def_prob)
+    severity_score = confidence
 
-    st.markdown("### ⚠️ Severity Assessment")
-    st.markdown(f"- **Severity Score:** `{severity_score}`")
-    st.markdown(f"- **Severity Level:** **{severity_level}**")
+    if severity_score < 0.15:
+        severity_level = "Low"
+    elif severity_score < 0.35:
+        severity_level = "Medium"
+    else:
+        severity_level = "High"
+
+    st.markdown("## ⚠️ Severity Assessment")
+    st.write(f"- **Severity Score:** `{severity_score:.2f}`")
+    st.write(f"- **Severity Level:** **{severity_level}**")
 
     # ==================================================
-    # VISUAL INSPECTION REGION (ONLY IF DEFECT)
+    # FAULT BOX (VISUAL)
     # ==================================================
-    if pred == 1:
-        st.markdown("### 🟥 Highlighted Inspection Region")
+    h, w = image.size[1], image.size[0]
+    boxes = generate_fault_boxes((h, w, 3), severity_score)
 
-        # SAME STATIC REGION YOU ARE ALREADY USING
-        primary_box = [800, 1200, 3200, 1800]
+    if boxes:
+        import cv2
 
-        boxed_image = draw_primary_box(image, primary_box)
+        img_np = np.array(image)
 
-        st.image(
-            boxed_image,
-            caption="Primary Fault Inspection Region",
-            use_container_width=True
-        )
+        for box in boxes:
+            x1, y1, x2, y2 = box["box"]
+            cv2.rectangle(
+                img_np,
+                (x1, y1),
+                (x2, y2),
+                (255, 0, 0),
+                3
+            )
+            cv2.putText(
+                img_np,
+                box["label"],
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.9,
+                (255, 0, 0),
+                2
+            )
 
-        st.markdown(
-            f"- **Primary Fault → Region:** `{primary_box}`"
-        )
+        boxed_img = Image.fromarray(img_np)
+
+        st.markdown("## 🟥 Highlighted Inspection Region")
+
+        # 🔽 SMALLER DISPLAY AGAIN
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col2:
+            st.image(
+                boxed_img,
+                use_container_width=False,
+                width=700
+            )
