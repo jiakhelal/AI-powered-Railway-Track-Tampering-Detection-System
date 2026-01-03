@@ -4,17 +4,31 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 import torch
 import timm
 import torchvision.transforms as T
+import urllib.request
 
 DEVICE = "cpu"
 
 CLASS_NAMES = ["Non-Defective", "Defective"]
 
 # ======================================================
-# Load Model
+# MODEL DOWNLOAD CONFIG
+# ======================================================
+MODEL_URL = "https://drive.google.com/uc?id=1n1aAuUGxuNUEorj_zT3koe03ZvC4D-R7"
+MODEL_DIR = "models"
+MODEL_PATH = os.path.join(MODEL_DIR, "davit_fastener.pth")
+
+def download_model():
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    if not os.path.exists(MODEL_PATH):
+        print("⬇️ Downloading DaViT model from Google Drive...")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        print("✅ Model downloaded successfully.")
+
+# ======================================================
+# LOAD MODEL
 # ======================================================
 def load_model():
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    WEIGHTS_PATH = os.path.join(BASE_DIR, "models", "davit_fastener.pth")
+    download_model()
 
     model = timm.create_model(
         "davit_tiny.msft_in1k",
@@ -22,16 +36,15 @@ def load_model():
         num_classes=2
     )
 
-    checkpoint = torch.load(WEIGHTS_PATH, map_location=DEVICE)
+    checkpoint = torch.load(MODEL_PATH, map_location=DEVICE)
     model.load_state_dict(checkpoint, strict=False)
 
     model.to(DEVICE)
     model.eval()
     return model
 
-
 # ======================================================
-# Image Transform
+# IMAGE TRANSFORM
 # ======================================================
 TRANSFORM = T.Compose([
     T.Resize((224, 224)),
@@ -42,9 +55,8 @@ TRANSFORM = T.Compose([
     ),
 ])
 
-
 # ======================================================
-# HACKATHON ROUND-1 PREDICT LOGIC
+# HACKATHON ROUND-1 PREDICT LOGIC 
 # ======================================================
 def predict(model, image_pil):
     """
@@ -70,7 +82,7 @@ def predict(model, image_pil):
         decision_reason = "Defect probability above safety threshold"
 
     elif def_prob >= 0.25:
-        pred = 1  # Suspected defect (still Defective for round-1)
+        pred = 1  # Suspected defect
         confidence = def_prob
         decision_reason = "Uncertain region – flagged for inspection"
 
