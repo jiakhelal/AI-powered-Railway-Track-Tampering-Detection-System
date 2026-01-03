@@ -1,15 +1,35 @@
-import torch
 import numpy as np
 
+# ======================================================
+# SEVERITY COMPUTATION (TOKEN-BASED)
+# ======================================================
+def compute_severity(token_energy):
+    """
+    token_energy: 1D numpy array from model tokens
+    """
+    high_tokens = token_energy > 0.7
+    score = float(np.sum(high_tokens) / len(token_energy))
 
+    if score < 0.03:
+        level = "Low"
+    elif score < 0.1:
+        level = "Medium"
+    else:
+        level = "High"
+
+    return score, level
+
+
+# ======================================================
+# FAULT BOX GENERATION (NO CV2)
+# ======================================================
 def generate_fault_boxes(image_shape, severity_score):
     """
-    Simple heuristic boxes for visualization
-    (works without cv2)
+    Simple heuristic inspection regions
+    Streamlit-safe (no cv2)
     """
 
     h, w = image_shape[:2]
-
     boxes = []
 
     if severity_score > 0.3:
