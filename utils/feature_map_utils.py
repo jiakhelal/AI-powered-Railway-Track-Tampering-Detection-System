@@ -1,11 +1,6 @@
 import torch
 import numpy as np
 
-try:
-    import cv2
-except ImportError:
-    cv2 = None
-
 # =========================================================
 # TOKEN IMPORTANCE 
 # =========================================================
