@@ -1,65 +1,60 @@
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
 import streamlit as st
+import torch
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
+# ===============================
+# IMPORT YOUR UTILS (SAFE)
+# ===============================
 from utils.model_utils import load_model, predict, CLASS_NAMES
-from utils.feature_map_utils import (
-    compute_severity,
-    generate_fault_boxes
-)
+from utils.feature_map_utils import compute_severity, generate_fault_boxes
 
 
-# ======================================================
-# Streamlit Page Config
-# ======================================================
+# ===============================
+# STREAMLIT CONFIG
+# ===============================
 st.set_page_config(
-    page_title="Railway Track Fault Detection",
+    page_title="AI Railway Track Fault Detection",
     layout="centered"
 )
 
-st.markdown(
-    "<h2 style='text-align:center;'>🚆 Railway Track Fault Detection</h2>",
-    unsafe_allow_html=True
+st.title("🚆 AI-Powered Railway Track Fault Detection")
+st.write(
+    "Upload a railway track image to detect **tampering / defects** using "
+    "**DaViT Vision Transformer** with safety-first decision logic."
 )
 
-# ======================================================
-# Load Model (Cached)
-# ======================================================
+# ===============================
+# LOAD MODEL (CACHED)
+# ===============================
 @st.cache_resource
-def get_model():
+def load_cached_model():
     return load_model()
 
-model = get_model()
+model = load_cached_model()
 
-# ======================================================
-# Upload Image
-# ======================================================
-uploaded = st.file_uploader(
-    "Upload Railway Track Image",
+
+# ===============================
+# IMAGE UPLOAD
+# ===============================
+uploaded_file = st.file_uploader(
+    "📤 Upload Railway Track Image",
     type=["jpg", "jpeg", "png"]
 )
 
-if uploaded is not None:
-    image = Image.open(uploaded).convert("RGB")
-    img_np = np.array(image)
+if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    st.image(
-        image,
-        caption="Uploaded Image",
-        width=400
-    )
-
-    st.markdown("---")
-
-    # ==================================================
-    # Detect Button
-    # ==================================================
     if st.button("🔍 Detect Fault"):
-        with st.spinner("Analyzing railway track..."):
+        with st.spinner("Analyzing image..."):
 
-            # ------------------------------
-            # Prediction (Round-1 Logic)
-            # ------------------------------
+            # -------------------------------
+            # PREDICTION
+            # -------------------------------
             (
                 pred,
                 confidence,
@@ -69,52 +64,63 @@ if uploaded is not None:
                 decision_reason
             ) = predict(model, image)
 
-            st.subheader("Prediction Result")
-            st.write(f"**Final Class:** {CLASS_NAMES[pred]}")
-            st.write(f"**Confidence:** {confidence:.2f}")
+            label = CLASS_NAMES[pred]
+
+            # -------------------------------
+            # FEATURE TOKENS → SEVERITY
+            # -------------------------------
+            with torch.no_grad():
+                feats = model.forward_features(tensor)
+                feats = feats[:, 1:, :]  # remove CLS token
+                token_energy = torch.norm(feats, dim=2).squeeze().cpu().numpy()
+
+            severity_score, severity_level = compute_severity(token_energy)
+
+            # -------------------------------
+            # DISPLAY RESULTS
+            # -------------------------------
+            st.subheader("🧠 Prediction Result")
+            st.write(f"**Prediction:** `{label}`")
+            st.write(f"**Confidence:** `{confidence:.2f}`")
             st.write(f"**Decision Reason:** {decision_reason}")
-            st.write(f"Non-Defective Probability: `{non_def_prob:.2f}`")
-            st.write(f"Defective Probability: `{def_prob:.2f}`")
 
-            if confidence < 0.65:
-                st.warning("⚠️ Uncertain prediction – flagged for inspection")
+            st.subheader("⚠️ Severity Analysis")
+            st.write(f"**Severity Score:** `{severity_score:.3f}`")
+            st.write(f"**Severity Level:** `{severity_level}`")
 
-            # ------------------------------
-            # Token Importance
-            # ------------------------------
-            token_energy = generate_feature_map(
-                model,
-                tensor
-            )
+            # -------------------------------
+            # DRAW FAULT BOXES (NO CV2)
+            # -------------------------------
+            img_np = np.array(image)
+            boxes = generate_fault_boxes(img_np.shape, severity_score)
 
-            # ------------------------------
-            # Severity
-            # ------------------------------
-            severity_score, severity_level = compute_severity(
-                token_energy
-            )
+            if boxes:
+                draw = ImageDraw.Draw(image)
 
-            # ------------------------------
-            # Draw Boxes (FORCED if Defective)
-            # ------------------------------
-            boxed_img = draw_boxes(
-                img_np,
-                token_energy,
-                severity_score,
-                force=(pred == 1)  # 🔴 FORCE boxes for Defective
-            )
+                for b in boxes:
+                    x1, y1, x2, y2 = b["box"]
+                    color = b["color"]
 
-            # ------------------------------
-            # Explanation Output
-            # ------------------------------
-            st.subheader("Model Explanation")
-            st.write(f"**Severity Score:** {severity_score:.2f}")
-            st.write(f"**Severity Level:** {severity_level}")
+                    draw.rectangle(
+                        [(x1, y1), (x2, y2)],
+                        outline=color,
+                        width=5
+                    )
+                    draw.text(
+                        (x1 + 10, y1 + 10),
+                        b["label"],
+                        fill=color
+                    )
 
-            st.image(
-                boxed_img,
-                caption="Primary (RED) / Secondary (BLUE) Fault Regions",
-                width=500
-            )
+                st.subheader("📍 Fault Localization")
+                st.image(image, use_container_width=True)
+            else:
+                st.info("No critical fault region detected.")
 
-
+# ===============================
+# FOOTER
+# ===============================
+st.markdown("---")
+st.caption(
+    "Built using **DaViT Vision Transformer**, Streamlit Cloud & Safety-First AI Logic"
+)
