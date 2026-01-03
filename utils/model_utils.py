@@ -38,9 +38,12 @@ def load_model():
         num_classes=2
     )
 
-    checkpoint = torch.load(MODEL_PATH, map_location="cpu")
+    checkpoint = torch.load(
+        MODEL_PATH,
+        map_location="cpu",
+        weights_only=False
+    )
 
-    # 🔥 HANDLE ALL SAVE FORMATS
     if isinstance(checkpoint, dict):
         if "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]
@@ -52,9 +55,7 @@ def load_model():
         raise RuntimeError("Unsupported checkpoint format")
 
     model.load_state_dict(state_dict, strict=False)
-    model.to(DEVICE)
     model.eval()
-
     return model
 
 # ======================================================
