@@ -1,5 +1,5 @@
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageDraw
 import numpy as np
 
 from utils.model_utils import load_model, predict
@@ -39,14 +39,16 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     image = Image.open(uploaded_file).convert("RGB")
 
-    # 🔽 DISPLAY SMALLER IMAGE (NO RESIZE OF ACTUAL IMAGE)
+    # ==================================================
+    # DISPLAY SMALLER IMAGE (VISUAL ONLY)
+    # ==================================================
     col1, col2, col3 = st.columns([1, 3, 1])
     with col2:
         st.image(
             image,
             caption="Uploaded Image",
-            use_container_width=False,
-            width=700   # 👈 controls visual size only
+            width=700,
+            use_container_width=False
         )
 
     # ==================================================
@@ -69,7 +71,7 @@ if uploaded_file is not None:
     st.write(f"**Decision Reason:** {reason}")
 
     # ==================================================
-    # SEVERITY (USING DEFECT PROBABILITY)
+    # SEVERITY ASSESSMENT
     # ==================================================
     severity_score = confidence
 
@@ -85,44 +87,38 @@ if uploaded_file is not None:
     st.write(f"- **Severity Level:** **{severity_level}**")
 
     # ==================================================
-    # FAULT BOX (VISUAL)
+    # FAULT REGION VISUALIZATION (NO cv2)
     # ==================================================
     h, w = image.size[1], image.size[0]
     boxes = generate_fault_boxes((h, w, 3), severity_score)
 
     if boxes:
-        import cv2
-
-        img_np = np.array(image)
+        boxed_img = image.copy()
+        draw = ImageDraw.Draw(boxed_img)
 
         for box in boxes:
             x1, y1, x2, y2 = box["box"]
-            cv2.rectangle(
-                img_np,
-                (x1, y1),
-                (x2, y2),
-                (255, 0, 0),
-                3
-            )
-            cv2.putText(
-                img_np,
-                box["label"],
-                (x1, y1 - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.9,
-                (255, 0, 0),
-                2
+
+            # 🔴 Red rectangle
+            draw.rectangle(
+                [(x1, y1), (x2, y2)],
+                outline="red",
+                width=4
             )
 
-        boxed_img = Image.fromarray(img_np)
+            # Label
+            draw.text(
+                (x1 + 5, max(0, y1 - 20)),
+                box["label"],
+                fill="red"
+            )
 
         st.markdown("## 🟥 Highlighted Inspection Region")
 
-        # 🔽 SMALLER DISPLAY AGAIN
         col1, col2, col3 = st.columns([1, 3, 1])
         with col2:
             st.image(
                 boxed_img,
-                use_container_width=False,
-                width=700
+                width=700,
+                use_container_width=False
             )
