@@ -4,20 +4,25 @@ import timm
 import torchvision.transforms as T
 import urllib.request
 
+# ======================================================
+# CONFIG
+# ======================================================
 DEVICE = "cpu"
 CLASS_NAMES = ["Non-Defective", "Defective"]
 
-# ======================================================
-# MODEL DOWNLOAD CONFIG
-# ======================================================
-MODEL_URL = "https://drive.google.com/uc?id=1n1aAuUGxuNUEorj_zT3koe03ZvC4D-R7"
-MODEL_DIR = "models"
-MODEL_PATH = os.path.join(MODEL_DIR, "davit_fastener.pth")
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+MODEL_PATH = os.path.join(MODEL_DIR, "davit_fastener_state_dict.pth")
 
+MODEL_URL = "https://drive.google.com/uc?id=1Ptp3XbIihWSHh_w2v1cMH2Jb5j50HsHS"
+
+# ======================================================
+# DOWNLOAD MODEL
+# ======================================================
 def download_model():
     os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.exists(MODEL_PATH):
-        print("⬇️ Downloading model...")
+        print("⬇️ Downloading DaViT model...")
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("✅ Model downloaded")
 
@@ -35,7 +40,7 @@ def load_model():
 
     checkpoint = torch.load(MODEL_PATH, map_location="cpu")
 
-    # 🔥 HANDLE ALL POSSIBLE SAVE FORMATS
+    # 🔥 HANDLE ALL SAVE FORMATS
     if isinstance(checkpoint, dict):
         if "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]
@@ -65,7 +70,7 @@ TRANSFORM = T.Compose([
 ])
 
 # ======================================================
-# PREDICTION LOGIC (ROUND-1 SAFE MODE)
+# PREDICTION LOGIC (SAFETY-FIRST)
 # ======================================================
 def predict(model, image_pil):
     tensor = TRANSFORM(image_pil).unsqueeze(0).to(DEVICE)
