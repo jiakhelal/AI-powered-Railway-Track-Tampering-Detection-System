@@ -22,9 +22,10 @@ MODEL_URL = "https://drive.google.com/uc?id=1Ptp3XbIihWSHh_w2v1cMH2Jb5j50HsHS"
 def download_model():
     os.makedirs(MODEL_DIR, exist_ok=True)
     if not os.path.exists(MODEL_PATH):
+        import gdown
         print("⬇️ Downloading DaViT model...")
-        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-        print("✅ Model downloaded")
+        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+
 
 # ======================================================
 # SAFE MODEL LOADER (DEPLOYMENT READY)
@@ -55,6 +56,7 @@ def load_model():
         raise RuntimeError("Unsupported checkpoint format")
 
     model.load_state_dict(state_dict, strict=False)
+    model.to(DEVICE)
     model.eval()
     return model
 
