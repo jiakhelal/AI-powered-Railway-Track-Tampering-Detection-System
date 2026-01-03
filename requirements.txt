@@ -1,9 +1,13 @@
-streamlit
-torch
-torchvision
-timm
+torch==2.2.2
+torchvision==0.17.2
+timm==0.9.12
 numpy
-Pillow
+pillow
+matplotlib
+scikit-learn
+streamlit
+
+
 
 
 
