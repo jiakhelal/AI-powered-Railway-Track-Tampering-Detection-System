@@ -25,12 +25,19 @@ def load_model():
         num_classes=2
     )
 
-    # ✅ FIX: weights-only loading
-    state_dict = torch.load(MODEL_PATH, map_location="cpu")
+    # 🔥 CRITICAL FIX
+    state_dict = torch.load(
+        MODEL_PATH,
+        map_location="cpu",
+        weights_only=True
+    )
+
     model.load_state_dict(state_dict, strict=False)
 
+    model.to(DEVICE)
     model.eval()
     return model
+
 
 TRANSFORM = T.Compose([
     T.Resize((224, 224)),
