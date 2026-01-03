@@ -3,21 +3,17 @@ import numpy as np
 import cv2
 
 # =========================================================
-# TOKEN IMPORTANCE (USED INTERNALLY)
+# TOKEN IMPORTANCE 
 # =========================================================
 def generate_feature_map(model, tensor):
-    """
-    Returns token-level importance (1D).
-    Kept name for backward compatibility with app.py
-    """
 
     device = next(model.parameters()).device
     tensor = tensor.to(device)
 
     with torch.no_grad():
-        feats = model.forward_features(tensor)  # [1, N, C]
+        feats = model.forward_features(tensor) 
 
-    # Remove CLS token if present
+
     if feats.shape[1] > 100:
         feats = feats[:, 1:, :]
 
