@@ -1,37 +1,72 @@
 import streamlit as st
 from PIL import Image
+import numpy as np
 
-from utils.model_utils import load_model, predict, CLASS_NAMES
+from utils.model_utils import load_model, predict
 from utils.feature_map_utils import generate_fault_boxes
 
-st.set_page_config(page_title="AI Railway Track Fault Detection", layout="centered")
-
-@st.cache_resource
-def load_cached_model():
-    return load_model()
+# ------------------------------------------------------
+# PAGE CONFIG
+# ------------------------------------------------------
+st.set_page_config(
+    page_title="AI-Powered Railway Track Fault Detection",
+    layout="centered"
+)
 
 st.title("🚆 AI-Powered Railway Track Fault Detection")
-st.write("Upload a railway track image to detect defects using DaViT (safety-first logic).")
+st.write(
+    "Upload a railway track image to detect defects using **DaViT (safety-first logic)**."
+)
 
-model = load_cached_model()
+# ------------------------------------------------------
+# LOAD MODEL (NO CACHING — VERY IMPORTANT)
+# ------------------------------------------------------
+try:
+    model = load_model()
+except Exception as e:
+    st.error("❌ Model failed to load")
+    st.exception(e)
+    st.stop()
 
-uploaded = st.file_uploader("Upload Image", type=["jpg", "png", "jpeg"])
+# ------------------------------------------------------
+# IMAGE UPLOAD
+# ------------------------------------------------------
+uploaded_file = st.file_uploader(
+    "Upload Railway Track Image",
+    type=["jpg", "jpeg", "png"]
+)
 
-if uploaded:
-    image = Image.open(uploaded).convert("RGB")
+if uploaded_file is not None:
+    image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    pred, confidence, reason = predict(model, image)
+    # --------------------------------------------------
+    # PREDICTION
+    # --------------------------------------------------
+    (
+        pred,
+        confidence,
+        tensor,
+        non_def_prob,
+        def_prob,
+        decision_reason
+    ) = predict(model, image)
 
-    st.subheader("Prediction")
-    st.write(f"**Class:** {CLASS_NAMES[pred]}")
-    st.write(f"**Confidence:** {confidence:.2f}")
-    st.write(f"**Decision:** {reason}")
+    label = "Defective" if pred == 1 else "Non-Defective"
+    color = "red" if pred == 1 else "green"
 
-    severity_score = confidence
-    boxes = generate_fault_boxes(image.size[::-1], severity_score)
+    st.markdown(f"### 🔍 Prediction: **:{color}[{label}]**")
+    st.write(f"**Confidence:** `{confidence:.2f}`")
+    st.write(f"**Decision Reason:** {decision_reason}")
+
+    # --------------------------------------------------
+    # SIMPLE VISUAL FAULT BOXES (NO OPENCV)
+    # --------------------------------------------------
+    boxes = generate_fault_boxes(np.array(image).shape, def_prob)
 
     if boxes:
-        st.subheader("⚠️ Detected Regions")
-        for b in boxes:
-            st.write(f"- {b['label']} region detected")
+        st.subheader("⚠️ Highlighted Inspection Regions")
+        for box in boxes:
+            st.write(
+                f"- **{box['label']}** → Region `{box['box']}`"
+            )
