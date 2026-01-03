@@ -4,7 +4,7 @@ from PIL import Image
 
 from utils.model_utils import load_model, predict, CLASS_NAMES
 from utils.feature_map_utils import (
-    generate_feature_map,
+    generate_fault_box,
     compute_severity,
     draw_boxes
 )
@@ -116,3 +116,4 @@ if uploaded is not None:
                 caption="Primary (RED) / Secondary (BLUE) Fault Regions",
                 width=500
             )
+
