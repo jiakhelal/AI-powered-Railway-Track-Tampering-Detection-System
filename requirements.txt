@@ -1,7 +1,8 @@
-streamlit>=1.29
+streamlit
 torch
 torchvision
-timm>=0.9
+timm
 numpy
 pillow
 matplotlib
+
