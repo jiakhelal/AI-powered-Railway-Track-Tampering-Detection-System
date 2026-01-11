@@ -5,7 +5,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 import io
 
-# ✅ IMPORTANT: utils folder must exist with inference.py inside
+# IMPORTANT: utils/inference.py must exist
 from utils.inference import load_model, run_inference
 
 
@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ================= NEON CYBER CSS =================
+# ================= NEON UI CSS =================
 st.markdown("""
 <style>
 body {
@@ -92,75 +92,103 @@ if img:
     image = Image.open(img).convert("RGB")
     st.image(image, width=520)
 
-    # ---------- MODEL INFERENCE ----------
+    # -------- MODEL INFERENCE --------
     predicted_class, confidence = run_inference(model, image)
 
-    # Convert to defect-oriented confidence
-    defect_confidence = confidence if predicted_class == 1 else 100 - confidence
-    prediction = "Defective Track" if defect_confidence >= 40 else "Normal Track"
-
-    # ---------- DECISION LOGIC (SAFETY-FIRST) ----------
-    if prediction == "Normal Track":
-        status = "NORMAL CONDITION"
-        severity = "LOW"
-        sev_class = "low"
-        color = "#00ffaa"
-        explanation = "Track structure appears normal."
-
-    elif defect_confidence >= 80:
-        status = "SUSPECTED INTENTIONAL TAMPERING"
-        severity = "HIGH"
-        sev_class = "high"
-        color = "#ff3c3c"
-        explanation = (
-            "Very high-confidence anomaly detected. "
-            "Structural pattern is inconsistent with natural wear, "
-            "indicating possible deliberate obstruction or interference."
-        )
-
-    elif defect_confidence >= 55:
-        status = "SUSPECTED INTENTIONAL TAMPERING"
-        severity = "HIGH"
-        sev_class = "high"
-        color = "#ff3c3c"
-        explanation = (
-            "Moderate-confidence anomaly detected within the rail corridor. "
-            "Foreign object or external interference cannot be ruled out. "
-            "Railway safety protocol mandates human verification."
-        )
+    # -------- DECISION LOGIC (CORRECT & SAFE) --------
+    if predicted_class == 0:
+        # Model predicts NORMAL
+        if confidence >= 70:
+            prediction = "Normal Track"
+            status = "NORMAL CONDITION"
+            severity = "LOW"
+            sev_class = "low"
+            color = "#00ffaa"
+            explanation = (
+                "Track visually matches learned normal patterns. "
+                "No abnormal structural elements detected."
+            )
+        else:
+            prediction = "Normal Track"
+            status = "UNCERTAIN – REQUIRES REVIEW"
+            severity = "LOW"
+            sev_class = "low"
+            color = "#00ffaa"
+            explanation = (
+                "Low-confidence normal prediction. "
+                "Image quality or viewing angle may affect certainty."
+            )
 
     else:
-        status = "NORMAL CONDITION"
-        severity = "LOW"
-        sev_class = "low"
-        color = "#00ffaa"
-        explanation = "Low-risk visual variation detected; no actionable anomaly."
+        # Model predicts DEFECTIVE
+        prediction = "Defective Track"
 
-    # ---------- ALERT PANEL ----------
+        if confidence >= 75:
+            status = "SUSPECTED INTENTIONAL TAMPERING"
+            severity = "HIGH"
+            sev_class = "high"
+            color = "#ff3c3c"
+            explanation = (
+                "High-confidence abnormal object or structural inconsistency detected "
+                "within the rail corridor. Pattern is inconsistent with natural wear "
+                "and may indicate external interference."
+            )
+
+        elif confidence >= 55:
+            status = "SUSPECTED ANOMALY (CAUSE UNKNOWN)"
+            severity = "MEDIUM"
+            sev_class = "medium"
+            color = "#ffaa00"
+            explanation = (
+                "Moderate-confidence abnormality detected. "
+                "Could be debris, ballast displacement, or early-stage defect. "
+                "Human verification required."
+            )
+
+        else:
+            status = "LOW-CONFIDENCE ANOMALY"
+            severity = "LOW"
+            sev_class = "low"
+            color = "#00ffaa"
+            explanation = (
+                "Weak anomaly signal detected. "
+                "Likely visual noise or benign variation."
+            )
+
+    # -------- ALERT PANEL --------
     st.markdown(f"""
     <div class="glass">
     <h3>🚨 AI Alert</h3>
     <b>Status:</b> {status}<br>
     <b>Prediction:</b> {prediction}<br>
-    <b>Confidence:</b> {defect_confidence:.1f}%<br>
+    <b>Confidence:</b> {confidence:.1f}%<br>
     <span class="badge {sev_class}">{severity} RISK</span>
     </div>
     """, unsafe_allow_html=True)
 
-    # ---------- VISUAL OVERLAY ----------
+    # -------- AI EXPLANATION --------
+    st.markdown(f"""
+    <div class="glass">
+    <h3>🧠 AI Reasoning</h3>
+    {explanation}
+    </div>
+    """, unsafe_allow_html=True)
+
+    # -------- VISUAL OVERLAY --------
     draw = ImageDraw.Draw(image)
     w, h = image.size
 
-    if prediction == "Defective Track":
+    if predicted_class == 1:
         x1, y1, x2, y2 = int(w * 0.3), int(h * 0.45), int(w * 0.7), int(h * 0.7)
         draw.rectangle([x1, y1, x2, y2], outline=color, width=5)
         draw.rectangle([x1, y1 - 32, x2, y1], fill=color)
-        draw.text((x1 + 8, y1 - 26), f"{status} | {defect_confidence:.1f}%", fill="white")
+        draw.text((x1 + 8, y1 - 26), f"{status} | {confidence:.1f}%", fill="white")
 
     st.image(image, width=520)
 
-    # ---------- HUMAN AUTHORIZATION ----------
+    # -------- HUMAN AUTHORIZATION --------
     st.markdown("<div class='glass'><h3>👤 Human Control Panel</h3>", unsafe_allow_html=True)
+
     action = st.selectbox(
         "Authorized Railway Action",
         [
@@ -171,9 +199,10 @@ if img:
             "Suspend Traffic"
         ]
     )
+
     remarks = st.text_area("Officer Remarks")
 
-    # ---------- PDF REPORT ----------
+    # -------- PDF REPORT --------
     def generate_pdf():
         buffer = io.BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
@@ -184,7 +213,7 @@ if img:
             "Railway AI Inspection Report",
             f"Status: {status}",
             f"Prediction: {prediction}",
-            f"Confidence: {defect_confidence:.1f}%",
+            f"Confidence: {confidence:.1f}%",
             f"Authorized Action: {action}",
             f"Remarks: {remarks}",
             f"Timestamp: {datetime.now().strftime('%d %b %Y | %H:%M IST')}",
