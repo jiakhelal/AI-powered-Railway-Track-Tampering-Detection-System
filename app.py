@@ -4,8 +4,8 @@ from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 import io
+from utils.inference import load_model, run_inference
 
-from inference import load_model, run_inference   # ✅ FIXED IMPORT
 
 # ================= PAGE CONFIG =================
 st.set_page_config(
@@ -147,3 +147,4 @@ if img:
         draw.rectangle([x1, y1, x2, y2], outline=color, width=5)
 
     st.image(image, width=520)
+
