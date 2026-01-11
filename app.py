@@ -95,65 +95,51 @@ if img:
     # -------- MODEL INFERENCE --------
     predicted_class, confidence = run_inference(model, image)
 
-    # -------- DECISION LOGIC (CORRECT & SAFE) --------
-    if predicted_class == 0:
-        # Model predicts NORMAL
-        if confidence >= 70:
-            prediction = "Normal Track"
-            status = "NORMAL CONDITION"
-            severity = "LOW"
-            sev_class = "low"
-            color = "#00ffaa"
-            explanation = (
-                "Track visually matches learned normal patterns. "
-                "No abnormal structural elements detected."
-            )
-        else:
-            prediction = "Normal Track"
-            status = "UNCERTAIN – REQUIRES REVIEW"
-            severity = "LOW"
-            sev_class = "low"
-            color = "#00ffaa"
-            explanation = (
-                "Low-confidence normal prediction. "
-                "Image quality or viewing angle may affect certainty."
-            )
+    CONFIDENCE_FLOOR = 65
+
+    # -------- SAFE DECISION LOGIC --------
+    if predicted_class == 0 and confidence >= CONFIDENCE_FLOOR:
+        prediction = "Normal Track"
+        status = "NORMAL CONDITION"
+        severity = "LOW"
+        sev_class = "low"
+        color = "#00ffaa"
+        explanation = "Track visually matches learned normal patterns."
+
+    elif predicted_class == 0 and confidence < CONFIDENCE_FLOOR:
+        prediction = "Normal Track"
+        status = "UNCERTAIN – IMAGE QUALITY / VIEW ANGLE"
+        severity = "LOW"
+        sev_class = "low"
+        color = "#00ffaa"
+        explanation = "Model confidence is low; no defect inferred."
+
+    elif predicted_class == 1 and confidence < CONFIDENCE_FLOOR:
+        prediction = "Normal Track"
+        status = "LOW-CONFIDENCE VISUAL NOISE"
+        severity = "LOW"
+        sev_class = "low"
+        color = "#00ffaa"
+        explanation = "Weak anomaly signal; treated as non-actionable."
+
+    elif predicted_class == 1 and confidence >= 75:
+        prediction = "Defective Track"
+        status = "SUSPECTED INTENTIONAL TAMPERING"
+        severity = "HIGH"
+        sev_class = "high"
+        color = "#ff3c3c"
+        explanation = (
+            "High-confidence abnormal object or structural inconsistency "
+            "detected within the rail corridor."
+        )
 
     else:
-        # Model predicts DEFECTIVE
         prediction = "Defective Track"
-
-        if confidence >= 75:
-            status = "SUSPECTED INTENTIONAL TAMPERING"
-            severity = "HIGH"
-            sev_class = "high"
-            color = "#ff3c3c"
-            explanation = (
-                "High-confidence abnormal object or structural inconsistency detected "
-                "within the rail corridor. Pattern is inconsistent with natural wear "
-                "and may indicate external interference."
-            )
-
-        elif confidence >= 55:
-            status = "SUSPECTED ANOMALY (CAUSE UNKNOWN)"
-            severity = "MEDIUM"
-            sev_class = "medium"
-            color = "#ffaa00"
-            explanation = (
-                "Moderate-confidence abnormality detected. "
-                "Could be debris, ballast displacement, or early-stage defect. "
-                "Human verification required."
-            )
-
-        else:
-            status = "LOW-CONFIDENCE ANOMALY"
-            severity = "LOW"
-            sev_class = "low"
-            color = "#00ffaa"
-            explanation = (
-                "Weak anomaly signal detected. "
-                "Likely visual noise or benign variation."
-            )
+        status = "SUSPECTED ANOMALY – HUMAN REVIEW"
+        severity = "MEDIUM"
+        sev_class = "medium"
+        color = "#ffaa00"
+        explanation = "Moderate anomaly detected; requires human verification."
 
     # -------- ALERT PANEL --------
     st.markdown(f"""
@@ -166,19 +152,11 @@ if img:
     </div>
     """, unsafe_allow_html=True)
 
-    # -------- AI EXPLANATION --------
-    st.markdown(f"""
-    <div class="glass">
-    <h3>🧠 AI Reasoning</h3>
-    {explanation}
-    </div>
-    """, unsafe_allow_html=True)
-
     # -------- VISUAL OVERLAY --------
     draw = ImageDraw.Draw(image)
     w, h = image.size
 
-    if predicted_class == 1:
+    if prediction == "Defective Track":
         x1, y1, x2, y2 = int(w * 0.3), int(h * 0.45), int(w * 0.7), int(h * 0.7)
         draw.rectangle([x1, y1, x2, y2], outline=color, width=5)
         draw.rectangle([x1, y1 - 32, x2, y1], fill=color)
