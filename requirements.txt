@@ -1,11 +1,20 @@
-streamlit
 torch
 torchvision
 timm
+grad-cam
+opencv-python
 numpy
-pillow
 matplotlib
-gdown
+pillow
+scikit-learn
+streamlit
+
+
+
+
+
+
+
 
 
 
