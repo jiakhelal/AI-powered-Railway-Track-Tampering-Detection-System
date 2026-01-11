@@ -94,31 +94,43 @@ if img:
     else:
         defect_confidence = 100 - confidence
     prediction = "Defective Track" if defect_confidence >= 40 else "Normal Track"
-    # ================= DECISION LOGIC =================
-    if prediction == "Normal Track":
-        status = "NORMAL CONDITION"
-        severity = "LOW"
-        sev_class = "low"
-        color = "#00ffaa"
-        explanation = "Track structure appears normal."
-    elif defect_confidence >= 75:
-        status = "SUSPECTED INTENTIONAL TAMPERING"
-        severity = "HIGH"
-        sev_class = "high"
-        color = "#ff3c3c"
-        explanation = "High-confidence anomaly detected. Possible deliberate obstruction."
-    elif defect_confidence >= 45:
-        status = "SUSPECTED INTENTIONAL TAMPERING"
-        severity = "HIGH"
-        sev_class = "high"
-        color = "#ff3c3c"
-        explanation = "Moderate anomaly on rail path. Foreign object risk cannot be ruled out."
-    else:
-        status = "NATURAL DEGRADATION"
-        severity = "MEDIUM"
-        sev_class = "medium"
-        color = "#ffaa00"
-        explanation = "Likely gradual wear or environmental stress."
+   # ================= DECISION LOGIC =================
+if prediction == "Normal Track":
+    status = "NORMAL CONDITION"
+    severity = "LOW"
+    sev_class = "low"
+    color = "#00ffaa"
+    explanation = "Track structure appears normal."
+
+elif defect_confidence >= 80:
+    status = "SUSPECTED INTENTIONAL TAMPERING"
+    severity = "HIGH"
+    sev_class = "high"
+    color = "#ff3c3c"
+    explanation = (
+        "Very high-confidence anomaly detected. "
+        "Structural pattern is inconsistent with natural wear, "
+        "suggesting possible deliberate obstruction or placement."
+    )
+
+elif 55 <= defect_confidence < 80:
+    status = "NATURAL DEGRADATION"
+    severity = "MEDIUM"
+    sev_class = "medium"
+    color = "#ffaa00"
+    explanation = (
+        "Moderate-confidence defect detected. "
+        "Pattern aligns with gradual degradation, ballast disturbance, "
+        "or environmental stress."
+    )
+
+else:
+    status = "NORMAL CONDITION"
+    severity = "LOW"
+    sev_class = "low"
+    color = "#00ffaa"
+    explanation = "Low-risk visual variation detected; no actionable anomaly."
+
     # ================= ALERT =================
     st.markdown(f"""
     <div class="glass alert-box">
@@ -189,3 +201,4 @@ if img:
             file_name="railway_ai_report.pdf",
             mime="application/pdf"
         )
+
